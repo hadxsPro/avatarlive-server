@@ -1,1 +1,137 @@
- 
+﻿<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline';" />
+  <title>AvatarLive</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Segoe UI", sans-serif; background: #0f0f0f; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; }
+    header { background: #1a1a2e; padding: 14px 24px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #2a2a4a; }
+    header h1 { font-size: 1.3rem; color: #a78bfa; font-weight: 700; }
+    header span { font-size: 0.75rem; color: #666; }
+    main { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+    .card { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 10px; padding: 16px; }
+    .card h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: .08em; color: #888; margin-bottom: 12px; }
+    .status-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: #444; flex-shrink: 0; }
+    .dot.on  { background: #22c55e; box-shadow: 0 0 6px #22c55e88; }
+    .dot.err { background: #ef4444; }
+    .status-label { font-size: 0.85rem; color: #aaa; }
+    .form-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+    input { flex: 1; min-width: 100px; background: #111; border: 1px solid #333; border-radius: 6px; color: #e0e0e0; padding: 7px 10px; font-size: 0.85rem; outline: none; }
+    input:focus { border-color: #a78bfa; }
+    input::placeholder { color: #555; }
+    button { padding: 7px 16px; border-radius: 6px; border: none; font-size: 0.85rem; cursor: pointer; font-weight: 600; transition: opacity .15s; }
+    button:hover { opacity: .85; }
+    button:disabled { opacity: .4; cursor: default; }
+    .btn-primary   { background: #a78bfa; color: #fff; }
+    .btn-danger    { background: #ef4444; color: #fff; }
+    .btn-secondary { background: #2a2a2a; color: #ccc; border: 1px solid #444; }
+    .avatars { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .avatar-btn { aspect-ratio: 1; border-radius: 10px; border: 2px solid #2a2a2a; background: #111; color: #aaa; font-size: 0.8rem; font-weight: 600; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; transition: border-color .15s, color .15s; }
+    .avatar-btn .icon { font-size: 1.8rem; }
+    .avatar-btn:hover { border-color: #a78bfa; color: #a78bfa; }
+    .avatar-btn.active { border-color: #a78bfa; background: #1e1333; color: #a78bfa; box-shadow: 0 0 12px #a78bfa44; }
+    #chat-log { height: 120px; overflow-y: auto; background: #111; border: 1px solid #2a2a2a; border-radius: 6px; padding: 8px; font-size: 0.8rem; display: flex; flex-direction: column; gap: 4px; }
+    .chat-msg { display: flex; gap: 6px; }
+    .chat-user { font-weight: 700; white-space: nowrap; }
+    .chat-text { color: #ccc; word-break: break-word; }
+    .hint { font-size: 0.75rem; color: #555; margin-top: 6px; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>AvatarLive</h1>
+  <span>Remplacement webcam en temps reel pour OBS</span>
+</header>
+<main>
+  <div class="card">
+    <h2>OBS WebSocket</h2>
+    <div class="status-row"><div class="dot" id="obs-dot"></div><span class="status-label" id="obs-status">Deconnecte</span></div>
+    <div class="form-row">
+      <input id="obs-host" type="text" placeholder="localhost" value="localhost" style="max-width:140px" />
+      <input id="obs-port" type="number" placeholder="4455" value="4455" style="max-width:80px" />
+      <input id="obs-password" type="password" placeholder="Mot de passe (optionnel)" />
+      <button class="btn-primary" id="obs-connect-btn" onclick="obsConnect()">Connecter</button>
+      <button class="btn-danger" id="obs-disconnect-btn" onclick="obsDisconnect()" style="display:none">Deconnecter</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Avatars - Scenes OBS (F1 a F4)</h2>
+    <div class="avatars">
+      <button class="avatar-btn active" id="avatar-default" onclick="switchAvatar('default')"><span class="icon">&#128566;</span><span>Default</span></button>
+      <button class="avatar-btn" id="avatar-avatar_1" onclick="switchAvatar('avatar_1')"><span class="icon">&#129464;</span><span>Avatar 1</span></button>
+      <button class="avatar-btn" id="avatar-avatar_2" onclick="switchAvatar('avatar_2')"><span class="icon">&#129497;</span><span>Avatar 2</span></button>
+      <button class="avatar-btn" id="avatar-avatar_3" onclick="switchAvatar('avatar_3')"><span class="icon">&#129302;</span><span>Avatar 3</span></button>
+    </div>
+    <p class="hint">Raccourcis : F1 / F2 / F3 / F4 - Stream Deck : touches 0 a 3</p>
+  </div>
+  <div class="card">
+    <h2>Twitch Chat</h2>
+    <div class="status-row"><div class="dot" id="twitch-dot"></div><span class="status-label" id="twitch-status">Deconnecte</span></div>
+    <div class="form-row">
+      <input id="twitch-channel" type="text" placeholder="nom_du_channel" />
+      <input id="twitch-username" type="text" placeholder="bot_username" />
+      <input id="twitch-token" type="password" placeholder="oauth token" />
+      <button class="btn-primary" id="twitch-connect-btn" onclick="twitchConnect()">Connecter</button>
+      <button class="btn-danger" id="twitch-disconnect-btn" onclick="twitchDisconnect()" style="display:none">Deconnecter</button>
+    </div>
+    <div id="chat-log"></div>
+    <p class="hint">Commande chat : !avatar default / !avatar avatar_1 ...</p>
+  </div>
+  <div class="card">
+    <h2>Stream Deck</h2>
+    <div class="status-row"><div class="dot" id="deck-dot"></div><span class="status-label" id="deck-status">Non connecte</span></div>
+    <button class="btn-secondary" onclick="deckConnect()">Detecter Stream Deck</button>
+  </div>
+</main>
+<script>
+  const api = window.avatarlive;
+  function obsConnect() {
+    api.obs.connect({ host: document.getElementById('obs-host').value || 'localhost', port: parseInt(document.getElementById('obs-port').value) || 4455, password: document.getElementById('obs-password').value || '' });
+  }
+  function obsDisconnect() { api.obs.disconnect(); }
+  api.obs.onConnected(() => { setStatus('obs', true, 'Connecte'); document.getElementById('obs-connect-btn').style.display = 'none'; document.getElementById('obs-disconnect-btn').style.display = ''; });
+  api.obs.onDisconnected(() => { setStatus('obs', false, 'Deconnecte'); document.getElementById('obs-connect-btn').style.display = ''; document.getElementById('obs-disconnect-btn').style.display = 'none'; });
+  api.obs.onError((msg) => setStatus('obs', 'err', 'Erreur : ' + msg));
+  function switchAvatar(name) { api.avatar.switch(name); }
+  api.avatar.onChange((name) => {
+    document.querySelectorAll('.avatar-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById('avatar-' + name);
+    if (btn) btn.classList.add('active');
+  });
+  function twitchConnect() {
+    const ch = document.getElementById('twitch-channel').value;
+    const un = document.getElementById('twitch-username').value;
+    const tk = document.getElementById('twitch-token').value;
+    if (!ch || !un || !tk) return;
+    api.twitch.connect({ channel: ch, username: un, token: tk });
+  }
+  function twitchDisconnect() { api.twitch.disconnect(); }
+  api.twitch.onConnected((ch) => { setStatus('twitch', true, 'Connecte a #' + ch); document.getElementById('twitch-connect-btn').style.display = 'none'; document.getElementById('twitch-disconnect-btn').style.display = ''; });
+  api.twitch.onDisconnected(() => { setStatus('twitch', false, 'Deconnecte'); document.getElementById('twitch-connect-btn').style.display = ''; document.getElementById('twitch-disconnect-btn').style.display = 'none'; });
+  api.twitch.onError((msg) => setStatus('twitch', 'err', 'Erreur : ' + msg));
+  api.twitch.onMessage((m) => {
+    const log = document.getElementById('chat-log');
+    const line = document.createElement('div');
+    line.className = 'chat-msg';
+    line.innerHTML = '<span class="chat-user" style="color:' + m.color + '">' + m.user + '</span><span class="chat-text">' + m.message + '</span>';
+    log.appendChild(line);
+    log.scrollTop = log.scrollHeight;
+  });
+  function deckConnect() { api.streamdeck.connect(); }
+  api.streamdeck.onConnected(() => setStatus('deck', true, 'Stream Deck connecte'));
+  function setStatus(id, state, label) {
+    document.getElementById(id + '-dot').className = 'dot' + (state === true ? ' on' : state === 'err' ? ' err' : '');
+    document.getElementById(id + '-status').textContent = label;
+  }
+  api.getState().then(s => {
+    if (s.obsConnected) setStatus('obs', true, 'Connecte');
+    if (s.twitchConnected) setStatus('twitch', true, 'Connecte');
+    const btn = document.getElementById('avatar-' + s.currentAvatar);
+    if (btn) btn.classList.add('active');
+  });
+</script>
+</body>
+</html>
