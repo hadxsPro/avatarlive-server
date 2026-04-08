@@ -25,9 +25,14 @@
   "build": {
     "appId": "com.avatarlive.app",
     "productName": "AvatarLive",
+    "files": [
+      "src/**/*",
+      "renderer/**/*",
+      "stripe_server.js",
+      "package.json"
+    ],
     "win": {
-      "target": "nsis",
-      "icon": "assets/icon.ico"
+      "target": "nsis"
     }
   }
 }
